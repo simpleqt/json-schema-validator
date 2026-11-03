@@ -30,16 +30,23 @@ public class Annotation {
     private final SchemaLocation schemaLocation;
     private final NodePath evaluationPath;
     private final Object value;
+    private final boolean unknownKeyword;
     private boolean valid = true; // If not valid it means dropped
 
     public Annotation(String keyword, NodePath instanceLocation, SchemaLocation schemaLocation,
             NodePath evaluationPath, Object value) {
+        this(keyword, instanceLocation, schemaLocation, evaluationPath, value, false);
+    }
+
+    public Annotation(String keyword, NodePath instanceLocation, SchemaLocation schemaLocation,
+            NodePath evaluationPath, Object value, boolean unknownKeyword) {
         super();
         this.keyword = keyword;
         this.instanceLocation = instanceLocation;
         this.schemaLocation = schemaLocation;
         this.evaluationPath = evaluationPath;
         this.value = value;
+        this.unknownKeyword = unknownKeyword;
     }
 
     /**
@@ -49,6 +56,20 @@ public class Annotation {
      */
     public String getKeyword() {
         return keyword;
+    }
+
+    /**
+     * Whether the annotation was produced by a keyword the dialect does not define.
+     * <p>
+     * An unknown keyword that is treated as an annotation may have the same name as a
+     * keyword an applicator consumes in another dialect, for example {@code items} or
+     * {@code contains}. The applicator validators must ignore such an annotation, or a
+     * reported annotation would change the validation result.
+     *
+     * @return whether the annotation was produced by an unknown keyword
+     */
+    public boolean isUnknownKeyword() {
+        return unknownKeyword;
     }
 
     /**
@@ -81,8 +102,28 @@ public class Annotation {
     }
 
     /**
-     * The attached value(s).
-     * 
+     * The value the annotation reports, which is not always the keyword's JSON value.
+     * <p>
+     * For a keyword whose annotation is collected from its schema node (the
+     * annotation keywords and readOnly/writeOnly), the value is that node's value as
+     * the Java type that matches the JSON type: a string, a number and a boolean are
+     * unwrapped to {@link String}, {@link Number} and {@link Boolean}, and an object,
+     * an array and a JSON null are reported as the schema's own node, not as a copy,
+     * and must be treated as read-only, because mutating the returned node mutates the
+     * cached schema. A JSON null is therefore a node whose {@code isNull()} is true,
+     * not the Java null that means that the annotation has no value.
+     * <p>
+     * Other keywords report the value their own validator computes, which has the type
+     * that validator documents and need not be the keyword's JSON value. In particular
+     * {@code properties}, {@code patternProperties} and {@code additionalProperties}
+     * report a {@link java.util.Set} of the matched property names;
+     * {@code prefixItems} and {@code items} report {@code true} or, when the instance
+     * array is longer than the tuple, the number of tuple schemas that were applied as
+     * an {@link Integer}; {@code contains} reports {@code true} or a
+     * {@link java.util.List} of the matched indexes as {@link Integer}; and
+     * {@code format} and {@code contentEncoding} report their computed value. The value
+     * of such a keyword must not be read as its schema node.
+     *
      * @param <T> the value type
      * @return the value
      */
@@ -102,12 +143,13 @@ public class Annotation {
     @Override
     public String toString() {
         return "Annotation [evaluationPath=" + evaluationPath + ", schemaLocation=" + schemaLocation
-                + ", instanceLocation=" + instanceLocation + ", keyword=" + keyword + ", value=" + value + "]";
+                + ", instanceLocation=" + instanceLocation + ", keyword=" + keyword + ", value=" + value
+                + ", unknownKeyword=" + unknownKeyword + "]";
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(evaluationPath, instanceLocation, keyword, schemaLocation, value);
+        return Objects.hash(evaluationPath, instanceLocation, keyword, schemaLocation, value, unknownKeyword);
     }
 
     @Override
@@ -119,7 +161,7 @@ public class Annotation {
         if (getClass() != obj.getClass())
             return false;
         Annotation other = (Annotation) obj;
-        return Objects.equals(evaluationPath, other.evaluationPath)
+        return unknownKeyword == other.unknownKeyword && Objects.equals(evaluationPath, other.evaluationPath)
                 && Objects.equals(instanceLocation, other.instanceLocation) && Objects.equals(keyword, other.keyword)
                 && Objects.equals(schemaLocation, other.schemaLocation) && Objects.equals(value, other.value);
     }
@@ -134,6 +176,7 @@ public class Annotation {
         private SchemaLocation schemaLocation;
         private NodePath evaluationPath;
         private Object value;
+        private boolean unknownKeyword;
 
         public Builder keyword(Keyword keyword) {
             this.keyword = keyword.getValue();
@@ -165,8 +208,13 @@ public class Annotation {
             return this;
         }
 
+        public Builder unknownKeyword(boolean unknownKeyword) {
+            this.unknownKeyword = unknownKeyword;
+            return this;
+        }
+
         public Annotation build() {
-            return new Annotation(keyword, instanceLocation, schemaLocation, evaluationPath, value);
+            return new Annotation(keyword, instanceLocation, schemaLocation, evaluationPath, value, unknownKeyword);
         }
     }
 

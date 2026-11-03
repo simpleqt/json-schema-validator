@@ -29,41 +29,40 @@ import com.networknt.schema.SchemaContext;
 public class AnnotationKeyword extends AbstractKeyword {
 
     private static final class Validator extends AbstractKeywordValidator {
+        private final boolean unknownKeyword;
+
         public Validator(SchemaLocation schemaLocation, JsonNode schemaNode,
-                Schema parentSchema, SchemaContext schemaContext, Keyword keyword) {
+                Schema parentSchema, SchemaContext schemaContext, Keyword keyword, boolean unknownKeyword) {
             super(keyword, schemaNode, schemaLocation);
+            this.unknownKeyword = unknownKeyword;
         }
 
         @Override
         public void validate(ExecutionContext executionContext, JsonNode node, JsonNode rootNode, NodePath instanceLocation) {
-            if (collectAnnotations(executionContext)) {
-                Object value = getAnnotationValue(getSchemaNode());
-                if (value != null) {
-                    putAnnotation(executionContext,
-                            annotation -> annotation.instanceLocation(instanceLocation).value(value));
-                }
-            }
-        }
-
-        private Object getAnnotationValue(JsonNode schemaNode) {
-            if (schemaNode.isString()) {
-                return schemaNode.asString(); 
-            } else if (schemaNode.isNumber()) {
-                return schemaNode.numberValue();
-            } else if (schemaNode.isObject()) {
-                return schemaNode;
-            }
-            return null;
+            putSchemaNodeAnnotation(executionContext, instanceLocation, unknownKeyword);
         }
     }
 
+    private final boolean unknownKeyword;
+
     public AnnotationKeyword(String keyword) {
+        this(keyword, false);
+    }
+
+    /**
+     * Creates an annotation keyword.
+     *
+     * @param keyword        the keyword value
+     * @param unknownKeyword whether the dialect does not define the keyword
+     */
+    public AnnotationKeyword(String keyword, boolean unknownKeyword) {
         super(keyword);
+        this.unknownKeyword = unknownKeyword;
     }
 
     @Override
     public KeywordValidator newValidator(SchemaLocation schemaLocation, JsonNode schemaNode,
                                       Schema parentSchema, SchemaContext schemaContext) {
-        return new Validator(schemaLocation, schemaNode, parentSchema, schemaContext, this);
+        return new Validator(schemaLocation, schemaNode, parentSchema, schemaContext, this, unknownKeyword);
     }
 }

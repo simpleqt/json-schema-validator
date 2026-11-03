@@ -39,7 +39,7 @@ public class UnknownKeywordFactory implements KeywordFactory {
             logger.warn(
                     "Unknown keyword {} - you should define your own Meta Schema. If the keyword is irrelevant for validation, just use a NonValidationKeyword or if it should generate annotations AnnotationKeyword",
                     keyword);
-            return new AnnotationKeyword(keyword);
+            return new AnnotationKeyword(keyword, true);
         });
     }
 
